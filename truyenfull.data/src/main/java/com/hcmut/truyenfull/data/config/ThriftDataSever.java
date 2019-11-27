@@ -34,6 +34,6 @@ public class ThriftDataSever {
             DataController dataController){
         TServlet tServlet = new TServlet(new Dataservice.Processor<>(dataController),tProtocolFactory);
         
-        return new ServletRegistrationBean(tServlet,"/getComic");
+        return new ServletRegistrationBean(tServlet,"/data");
     }
 }
