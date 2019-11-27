@@ -27,9 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * @author TAM
  */
-
-
-
+@Controller
 public class Crawl {
 
     @Autowired
@@ -55,10 +53,11 @@ public class Crawl {
         Elements elements = document.select("div.row > div.col-md-4 > ul > li > a");
         for (Element element : elements) {
             Category newCategory = new Category();
-            String link = element.absUrl("href");
+            String[] strings = element.absUrl("href").split("/");
             String title = element.text();
             newCategory.setTitle(title);
-            newCategory.setLink(link);
+            String urlName = strings[strings.length - 1];
+            newCategory.setUrlName(urlName);
             categories.add(newCategory);
         }
 
@@ -67,8 +66,9 @@ public class Crawl {
     }
 
     public boolean isExistComic(String urlComic) {
-
-        if (comicRepository.findByLink(urlComic) != null) {
+        String[] strings = urlComic.split("/");
+        String urlName = strings[strings.length - 1];
+        if (comicRepository.findByUrlName(urlName) != null) {
             return true;
         }
         return false;
@@ -76,8 +76,12 @@ public class Crawl {
 
     
     public Boolean crawlerAllComic(int sl) throws IOException {
+        Set<Category> categories = categoryRepository.findAll().stream().collect(Collectors.toSet());
+        if (categories.isEmpty()) {
+            categories = getListCategory();
+        }
         Boolean cont = true;
-        String url = "https://truyenfull.vn/danh-sach/truyen-teen-hay/";
+        String url = "https://truyenfull.vn/danh-sach/ngon-tinh-sac/";
         String nextUrl = null;
         int i = 1;
         do {
@@ -96,21 +100,18 @@ public class Crawl {
                 }
 
             }
-            Elements nextEls = doc.select(".pagination>li>a>span");
-            for (Element nextEl : nextEls) {
-                if (nextEl.text().equals("Trang tiếp")) {
+            Element nextEl = doc.select(" div > ul > li.active + li >a").first();
+            if (nextEl != null) {
 
-                    nextUrl = nextEl.parent().attr("href");
+                if (!nextEl.attr("href").equals("javascript:void(0)")) {
+
+                    url = nextEl.attr("href");
+                    System.out.println(nextEl.attr("href"));
+
+                } else {
                     break;
-
                 }
-            }
-            if (nextUrl == null) {
-                cont = false;
 
-            } else {
-                url = nextUrl;
-                nextUrl = null;
             }
             i++;
 
@@ -124,17 +125,22 @@ public class Crawl {
 
         Comic comic = new Comic();
         comic.setAuthor(doc.selectFirst("div.info > div:nth-child(1) > a").attr("title"));
-        comic.setLink(urlComic);
-        comic.setTitle(doc.selectFirst("div.col-xs-12.col-info-desc > h3").attr("title"));
+        String[] strings = urlComic.split("/");
+        String urlName = strings[strings.length - 1];
+        comic.setUrlName(urlName);
+        comic.setTitle(doc.selectFirst(".col-info-desc h3.title").text());
         if (doc.selectFirst("div:nth-child(4) > span") == null) {
             comic.setStatus("Đang ra");
         } else {
             comic.setStatus(doc.selectFirst("div:nth-child(4) > span").text());
         }
-        Elements geners = doc.select(".info a[itemprop=genre]");
+        Elements geners = doc.select("div:nth-child(2) > a");
         for (Element gener : geners) {
-            Category category = categoryRepository.findByTitle(gener.absUrl("title"));
-            category.addComic(comic);
+            Category category = categoryRepository.findByTitle(gener.attr("title"));
+            System.out.println(category.getUrlName());
+            if (category != null) {
+                comic.getCategorys().add(category);
+            }
         }
         comicRepository.save(comic);
         crawlAllChapter(urlComic);
@@ -143,9 +149,12 @@ public class Crawl {
     public void crawlAllChapter(String url) throws IOException {
 
 //        String url = "https://truyenfull.vn/doc-ton-tam-gioi/";
-        Comic comic = comicRepository.findByLink(url).get(0);
+        String[] strings = url.split("/");
+        String urlName = strings[strings.length - 1];
+        Comic comic = comicRepository.findByUrlName(urlName);
         String nextUrl = null;
         Boolean cont = true;
+        int indexChapter = 1;
         int i = 0;
         do {
             Document doc = Jsoup.connect(url).get();
@@ -153,37 +162,52 @@ public class Crawl {
             for (Element chapter : chapters) {
                 System.out.println(chapter.text());
                 System.out.println(chapter.attr("href"));
-                crawlAllChapter(url);
-
+                crawlChapter(chapter.attr("href"), comic, indexChapter);
+                indexChapter++;
             }
 
-            Elements nextEls = doc.select(".pagination>li>a>span");
-            for (Element nextEl : nextEls) {
-                if (nextEl.text().equals("Trang tiếp")) {
-
-                    nextUrl = nextEl.parent().attr("href");
-                    break;
-                }
-            }
-
-            if (nextUrl == null) {
-                cont = false;
+            Element nextEl = doc.select(" div > ul > li.active + li >a").first();
+            if (nextEl != null) {
+                url = nextEl.attr("href");
+                System.out.println(nextEl.attr("href"));
             } else {
-                url = nextUrl;
-                nextUrl = null;
+                break;
             }
             i++;
 
         } while (cont);
 
-    }public void crawlChapter(String urlChapter,Comic comic) throws IOException{
+    }
+
+    public void crawlChapter(String urlChapter, Comic comic, int indexChapter) throws IOException {
         Document doc = Jsoup.connect(urlChapter).get();
         Chapter chapter = new Chapter();
-        String[] strings = doc.select("div > div > a").attr("title").split(" - ",2);
-        String[] string2 = strings[1].split(": ");
-        chapter.setTitle(string2[1]);
-        chapter.setIndex(string2[0]);
+        String title = doc.select(".chapter .chapter-title").attr("title");
+        String[] strings = urlChapter.split("/");
+        String urlName = strings[strings.length - 1];
+        chapter.setUrlName(urlName);
+        chapter.setTitle(title);
+        chapter.setIndex(indexChapter);
         comic.addChapter(chapter);
         chapterRepository.save(chapter);
     }
+    public void crawlComicTest() throws IOException {
+        String urlComic = "https://truyenfull.vn/vo-yeu-den-roi/";
+        Document doc = Jsoup.connect(urlComic).get();
+
+        
+        Elements geners = doc.select("div:nth-child(2) > a");
+        for (Element gener : geners) {
+            Category category = categoryRepository.findByTitle(gener.attr("title"));
+            System.out.println(category.getUrlName());
+            
+        }
+        
+    }
+//    public Boolean crawlerAllComic2(int sl){
+//        System.out.println("da thuc hien");
+//        return true;
+//    }
+    
+    
 }
