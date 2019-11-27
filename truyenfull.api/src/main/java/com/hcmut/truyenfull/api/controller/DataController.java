@@ -12,6 +12,7 @@ import org.apache.thrift.TException;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -19,13 +20,25 @@ import org.springframework.web.bind.annotation.RestController;
  * @author TAM
  */
 @RestController
+@RequestMapping("/api")
 public class DataController {
      @Autowired
      DataClient dataClient;
      
-     @GetMapping(value = "/data",produces = "application/json")
+     @GetMapping(value = "/getComic",produces = "application/json")
      public String getComic(HttpServletRequest request) throws TException {
          String name = request.getParameter("name");
          return dataClient.GetComic(name);
      }
+     @GetMapping(value = "/getCategory",produces = "application/json")
+     public String getCategory(HttpServletRequest request) throws TException {
+         String name = request.getParameter("name");
+         return dataClient.GetCategory(name);
+     }
+     @GetMapping(value = "/getAllComicInCategory",produces = "application/json")
+     public String getAllComicInCategory(HttpServletRequest request) throws TException {
+         String name = request.getParameter("name");
+         return dataClient.GetAllComicInCategory(name);
+     }
+     
 }
