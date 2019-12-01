@@ -28,4 +28,9 @@ public class CrawlerController {
         int sl = Integer.parseInt(request.getParameter("sl"));
         return crawlerClient.Crawler(sl);
     }
+    @GetMapping(value = "/update",produces = "application/json")
+    public boolean UpdateComics(HttpServletRequest request) throws TException{
+        int sl = Integer.parseInt(request.getParameter("sl"));
+        return crawlerClient.UpdateComic(sl);
+    }
 }
