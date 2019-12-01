@@ -29,7 +29,9 @@ public class ResponseUtil {
         node.put("id",comic.getId());
         node.put("title",comic.getTitle());
         node.put("link", comic.getUrlName());
-        node.put("chapters",returnListChapter(comic.getChapters()));
+        node.put("chapters",returnListChapter(comic.getChapters()).toString());
+        node.put("rating",comic.getRating());
+        node.put("views", comic.getViews());
         return node;
     }
     public static ArrayNode returnListComic(List<Comic> comics){
@@ -80,9 +82,9 @@ public class ResponseUtil {
     }
     public static ArrayNode returnListChapter(List<Chapter> chapters){
         ArrayNode node = mapper.createArrayNode();
-        for(Chapter chapter : chapters){
+        chapters.forEach((chapter) -> {
             node.add(returnChapter(chapter));
-        }
+        });
         return node;
     }
     public static String success(JsonNode body){
